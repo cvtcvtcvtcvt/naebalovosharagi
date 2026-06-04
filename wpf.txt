@@ -1,0 +1,918 @@
+Заменить цвета всего приложения и подвигать кнопки чтобы работы были не одинаковые молю вас!
+
+
+
+Шаг 1 — Создай проект
+Visual Studio → File → New → Project → WPF App (.NET Framework) → назови demowpf → .NET Framework 4.7.2
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 2 — БД (открой server management - нажми соединиться - создать запрос(вставь код ниже) - выполнить запрос - переходи к приложению)
+В SSMS выполни:
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE DATABASE ShoeShop;
+GO
+USE ShoeShop;
+GO
+
+CREATE TABLE Users (
+    Id       INT PRIMARY KEY IDENTITY,
+    Login    NVARCHAR(50) NOT NULL,
+    Password NVARCHAR(10) NOT NULL,
+    Role     NVARCHAR(20) DEFAULT 'user'
+);
+CREATE TABLE Categories (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+CREATE TABLE Manufacturers (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+CREATE TABLE Suppliers (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+CREATE TABLE Products (
+    Id             INT PRIMARY KEY IDENTITY,
+    Name           NVARCHAR(200) NOT NULL,
+    Price          DECIMAL(10,2) NOT NULL,
+    Stock          INT          DEFAULT 0,
+    Discount       DECIMAL(5,2) DEFAULT 0,
+    Unit           NVARCHAR(50),
+    Description    NVARCHAR(500),
+    CategoryId     INT REFERENCES Categories(Id),
+    ManufacturerId INT REFERENCES Manufacturers(Id),
+    SupplierId     INT REFERENCES Suppliers(Id)
+);
+GO
+
+INSERT INTO Users VALUES ('admin','123','admin');
+INSERT INTO Users VALUES ('user1','abc','user');
+INSERT INTO Categories VALUES ('Кроссовки');
+INSERT INTO Categories VALUES ('Сапоги');
+INSERT INTO Categories VALUES ('Туфли');
+INSERT INTO Manufacturers VALUES ('Nike');
+INSERT INTO Manufacturers VALUES ('Adidas');
+INSERT INTO Suppliers VALUES ('ООО Поставщик 1');
+INSERT INTO Suppliers VALUES ('ООО Поставщик 2');
+INSERT INTO Products VALUES ('Кроссовки Nike', 5990, 10, 0,  'пара', 'Удобные кроссовки',  1, 1, 1);
+INSERT INTO Products VALUES ('Сапоги зимние',  8490, 0,  20, 'пара', 'Тёплые сапоги',      2, 2, 1);
+INSERT INTO Products VALUES ('Туфли классика', 4290, 5,  10, 'пара', 'Классические туфли', 3, 1, 2);
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 3 — Удали MainWindow.xaml
+ПКМ на MainWindow.xaml → Delete
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 4 — DB.cs  (в server management studio - возьми название твоего компа (DESKTOP-41RFB3E пример) взять можно при соединении бдшки)
+Создай файл DB.cs в корне проекта:
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+using System.Data.SqlClient;
+
+namespace demowpf
+{
+    static class DB
+    {
+        // ПОМЕНЯЙ Server= на своё имя сервера из SSMS
+        static string con = "Server=DESKTOP-41RFB3E;Database=ShoeShop;Trusted_Connection=True;";
+        public static SqlConnection Get() => new SqlConnection(con);
+    }
+}
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 5 — App.xaml 
+App.xaml (замени полностью):
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+<Application x:Class="demowpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="WindowAuth.xaml">
+    <Application.Resources/>
+</Application>
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 6 — App.xaml.cs (глобальные данные)
+App.xaml.cs (замени полностью):
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+using System.Windows;
+
+namespace demowpf
+{
+    public partial class App : Application
+    {
+        public static int UserId = 0;
+        public static string UserLogin = "";
+        public static string UserRole = "";
+    }
+}
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 7 — WindowAuth.xaml
+ПКМ на проект → Add → Window → WindowAuth.xaml
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+<Window x:Class="demowpf.WindowAuth"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Вход / Регистрация" Height="330" Width="420"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="30">
+        <TextBlock Text="Логин:"/>
+        <TextBox x:Name="txtLogin" Margin="0,2,0,8"/>
+
+        <TextBlock Text="Пароль (макс 3 символа):"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,12"/>
+
+        <WrapPanel>
+            <Button Content="Войти" Width="80" Click="btnVhod_Click" Margin="0,0,5,0"/>
+            <Button Content="Зарегистрироваться" Width="140" Click="btnReg_Click"/>
+        </WrapPanel>
+
+        <Button Content="Войти как гость" Margin="0,8,0,0" Click="btnGuest_Click"/>
+    </StackPanel>
+</Window>
+
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 8 — WindowAuth.xaml.cs
+вставить
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+using System.Data.SqlClient;
+using System.Windows;
+
+namespace demowpf
+{
+    public partial class WindowAuth : Window
+    {
+        public WindowAuth()
+        {
+            InitializeComponent();
+        }
+
+        bool Check()
+        {
+            if (txtLogin.Text.Trim() == "") { MessageBox.Show("Введите логин!"); return false; }
+            if (txtPass.Password.Trim() == "") { MessageBox.Show("Введите пароль!"); return false; }
+            if (txtPass.Password.Length > 3) { MessageBox.Show("Пароль макс 3 символа!"); return false; }
+            return true;
+        }
+
+        private void btnVhod_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+            var cmd = new SqlCommand("SELECT * FROM Users WHERE Login=@l AND Password=@p", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Password);
+            var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                App.UserId = (int)r["Id"];
+                App.UserLogin = r["Login"].ToString();
+                App.UserRole = r["Role"].ToString();
+                con.Close();
+                new WindowCatalog().Show();
+                Close();
+            }
+            else { con.Close(); MessageBox.Show("Неверный логин или пароль!"); }
+        }
+
+        private void btnReg_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+            var check = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Login=@l", con);
+            check.Parameters.AddWithValue("@l", txtLogin.Text);
+            if ((int)check.ExecuteScalar() > 0) { con.Close(); MessageBox.Show("Логин занят!"); return; }
+            var cmd = new SqlCommand("INSERT INTO Users(Login,Password,Role) VALUES(@l,@p,'user')", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Password);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Готово! Теперь войдите.");
+        }
+
+        // Гость — просто открываем каталог без авторизации
+        private void btnGuest_Click(object sender, RoutedEventArgs e)
+        {
+            new WindowCatalog().Show();
+            Close();
+        }
+    }
+}
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 9 — WindowCatalog.xaml
+ПКМ на проект → Add → Window → WindowCatalog.xaml
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+<Window x:Class="demowpf.WindowCatalog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Магазин обуви" Height="580" Width="950"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+    <DockPanel>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="5" Height="35">
+            <TextBox x:Name="txtSearch" Width="160" Margin="0,0,5,0"
+                     VerticalContentAlignment="Center"
+                     TextChanged="txtSearch_TextChanged"/>
+            <ComboBox x:Name="cmbSort" Width="120" Margin="0,0,5,0"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="cmbSort_Changed">
+                <ComboBoxItem Content="По цене ↑" IsSelected="True"/>
+                <ComboBoxItem Content="По цене ↓"/>
+            </ComboBox>
+            <Button Content="Корзина"  Width="70"  Margin="0,0,5,0" Click="btnCart_Click"/>
+            <Button Content="Обновить" Width="70"  Margin="0,0,5,0" Click="btnRefresh_Click"/>
+            <Button x:Name="btnAdmin"  Content="Админ" Width="60" Margin="0,0,5,0"
+                    Visibility="Collapsed" Click="btnAdmin_Click"/>
+            <Button x:Name="btnLogin"  Content="Войти" Width="70" Margin="0,0,5,0"
+                    Click="btnLogin_Click"/>
+            <TextBlock x:Name="lblUser" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <WrapPanel x:Name="wrapPanel" Margin="5"/>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 10 — WindowCatalog.xaml.cs
+вставить
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace demowpf
+{
+    public partial class WindowCatalog : Window
+    {
+        public static DataTable Cart = new DataTable();
+        bool isLoaded = false;
+
+        public WindowCatalog()
+        {
+            InitializeComponent();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!Cart.Columns.Contains("Название"))
+            {
+                Cart.Columns.Add("Название");
+                Cart.Columns.Add("Цена");
+            }
+            isLoaded = true;
+            UpdateButtons();
+            LoadProducts();
+        }
+
+        void LoadProducts(string search = "", string sort = "ASC")
+        {
+            if (!isLoaded) return;
+            wrapPanel.Children.Clear();
+            var con = DB.Get(); con.Open();
+            string q = $@"
+                SELECT p.Id, p.Name, p.Price, p.Stock, p.Discount,
+                       p.Description, p.Unit,
+                       c.Name as Category, m.Name as Manuf, s.Name as Supplier
+                FROM Products p
+                LEFT JOIN Categories c ON p.CategoryId=c.Id
+                LEFT JOIN Manufacturers m ON p.ManufacturerId=m.Id
+                LEFT JOIN Suppliers s ON p.SupplierId=s.Id
+                WHERE p.Name LIKE '%{search}%'
+                ORDER BY p.Price {sort}";
+            var da = new SqlDataAdapter(q, con);
+            var dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            foreach (DataRow r in dt.Rows)
+                wrapPanel.Children.Add(MakeCard(r));
+        }
+
+        // ИМЕНА ФОТО
+        string GetImage(int id)
+        {
+            if (id == 1) return "nike.png";
+            if (id == 2) return "nike.png";
+            if (id == 3) return "nike.png";
+            return "";
+        }
+
+        Border MakeCard(DataRow r)
+        {
+            decimal discount = r["Discount"] == DBNull.Value ? 0 : Convert.ToDecimal(r["Discount"]);
+            int stock = r["Stock"] == DBNull.Value ? 0 : Convert.ToInt32(r["Stock"]);
+            decimal price = Convert.ToDecimal(r["Price"]);
+            decimal finalPrice = price * (1 - discount / 100);
+
+            Brush bg = Brushes.White;
+            if (stock == 0) bg = Brushes.LightBlue;
+            else if (discount > 15) bg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E8B57"));
+
+            var stack = new StackPanel { Width = 210, Margin = new Thickness(2) };
+
+            // --- ФОТО ---
+            string imgPath = System.IO.Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "images",
+                GetImage(Convert.ToInt32(r["Id"])));
+
+            var img = new Image { Height = 90, Width = 205, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 0, 4) };
+            if (System.IO.File.Exists(imgPath))
+                img.Source = new BitmapImage(new Uri(imgPath));
+            stack.Children.Add(img);
+            // --- КОНЕЦ ФОТО ---
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = $"{r["Category"]} | {r["Name"]}",
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap
+            });
+            stack.Children.Add(new TextBlock { Text = "Описание: " + r["Description"], TextWrapping = TextWrapping.Wrap });
+            stack.Children.Add(new TextBlock { Text = "Произв: " + r["Manuf"] });
+            stack.Children.Add(new TextBlock { Text = "Поставщик: " + r["Supplier"] });
+
+            if (discount > 0)
+            {
+                var pricePanel = new StackPanel { Orientation = Orientation.Horizontal };
+                pricePanel.Children.Add(new TextBlock
+                {
+                    Text = price + " руб.  ",
+                    TextDecorations = TextDecorations.Strikethrough,
+                    Foreground = Brushes.Red
+                });
+                pricePanel.Children.Add(new TextBlock { Text = finalPrice.ToString("F0") + " руб." });
+                stack.Children.Add(pricePanel);
+            }
+            else
+            {
+                stack.Children.Add(new TextBlock { Text = price + " руб." });
+            }
+
+            stack.Children.Add(new TextBlock { Text = $"Ед: {r["Unit"]}   Склад: {stock} шт." });
+            stack.Children.Add(new TextBlock { Text = "Скидка: " + discount + "%" });
+
+            var btn = new Button { Content = "В корзину", Tag = r, Margin = new Thickness(0, 4, 0, 0) };
+            btn.Click += AddToCart;
+            stack.Children.Add(btn);
+
+            return new Border
+            {
+                Width = 220,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Background = bg,
+                Margin = new Thickness(4),
+                Padding = new Thickness(6),
+                Child = stack
+            };
+        }
+
+        void AddToCart(object sender, RoutedEventArgs e)
+        {
+            if (App.UserId == 0) { MessageBox.Show("Сначала войдите!"); return; }
+            var r = (DataRow)((Button)sender).Tag;
+            Cart.Rows.Add(r["Name"], r["Price"]);
+            MessageBox.Show("Добавлено в корзину!");
+        }
+
+        public void UpdateButtons()
+        {
+            if (!isLoaded) return;
+            btnLogin.Content = App.UserId == 0 ? "Войти" : "Профиль";
+            btnAdmin.Visibility = App.UserRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+            lblUser.Text = App.UserLogin;
+        }
+
+        private void btnLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (App.UserId == 0) new WindowAuth().ShowDialog();
+            else new WindowProfile(this).ShowDialog();
+            UpdateButtons();
+        }
+
+        private void txtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!isLoaded) return;
+            LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+        }
+
+        private void cmbSort_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (!isLoaded) return;
+            LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+        }
+
+        private void btnCart_Click(object sender, RoutedEventArgs e) => new WindowCart().ShowDialog();
+        private void btnAdmin_Click(object sender, RoutedEventArgs e) => new WindowAdmin().ShowDialog();
+        private void btnRefresh_Click(object sender, RoutedEventArgs e) => LoadProducts();
+    }
+}
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 11 — WindowProfile.xaml
+ПКМ на проект → Add → Window → WindowProfile.xaml
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+<Window x:Class="demowpf.WindowProfile"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Профиль" Height="330" Width="420"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="30">
+        <TextBlock x:Name="lblLogin" Margin="0,0,0,4"/>
+        <TextBlock x:Name="lblRole" Margin="0,0,0,12"/>
+        <TextBlock Text="Новый пароль (макс 3 символа):"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,8"/>
+        <Button Content="Изменить пароль" Click="btnSave_Click" Margin="0,0,0,6"/>
+        <Button Content="Выйти" Click="btnLogout_Click"/>
+    </StackPanel>
+</Window>
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 12 — WindowProfile.xaml
+вставить
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+using System.Data.SqlClient;
+using System.Windows;
+
+namespace demowpf
+{
+    public partial class WindowProfile : Window
+    {
+        WindowCatalog parent;
+
+        public WindowProfile(WindowCatalog p)
+        {
+            InitializeComponent();
+            parent = p;
+            lblLogin.Text = "Логин: " + App.UserLogin;
+            lblRole.Text = "Роль: " + App.UserRole;
+        }
+
+        private void btnSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (txtPass.Password.Trim() == "") { MessageBox.Show("Введите новый пароль!"); return; }
+            if (txtPass.Password.Length > 3) { MessageBox.Show("Пароль макс 3 символа!"); return; }
+            var con = DB.Get(); con.Open();
+            var cmd = new SqlCommand("UPDATE Users SET Password=@p WHERE Id=@id", con);
+            cmd.Parameters.AddWithValue("@p", txtPass.Password);
+            cmd.Parameters.AddWithValue("@id", App.UserId);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Пароль изменён!");
+        }
+
+        private void btnLogout_Click(object sender, RoutedEventArgs e)
+        {
+            App.UserId = 0;
+            App.UserLogin = "";
+            App.UserRole = "";
+            parent.UpdateButtons();
+            Close();
+        }
+    }
+}
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 13 — WindowCart.xaml
+ПКМ на проект → Add → Window → WindowCart.xaml
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+<Window x:Class="demowpf.WindowCart"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Корзина" Height="400" Width="480"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Button DockPanel.Dock="Bottom" Content="Очистить корзину"
+                Margin="5" Click="btnClear_Click"/>
+        <DataGrid x:Name="dgv" AutoGenerateColumns="True"
+                  IsReadOnly="True" CanUserAddRows="False"/>
+    </DockPanel>
+</Window>
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 14 — WindowCart.xaml.cs
+вставить
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+using System.Windows;
+
+namespace demowpf
+{
+    public partial class WindowCart : Window
+    {
+        public WindowCart()
+        {
+            InitializeComponent();
+            dgv.ItemsSource = WindowCatalog.Cart.DefaultView;
+        }
+
+        private void btnClear_Click(object sender, RoutedEventArgs e)
+            => WindowCatalog.Cart.Rows.Clear();
+    }
+}
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 15 — WindowAdmin.xaml
+ПКМ на проект → Add → Window → WindowAdmin.xaml
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+<Window x:Class="demowpf.WindowAdmin"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Админ панель" Height="520" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="5">
+            <ComboBox x:Name="cmbTable" Width="140" Margin="0,0,5,0"
+                      SelectedIndex="0">
+                <ComboBoxItem Content="Товары"/>
+                <ComboBoxItem Content="Пользователи"/>
+            </ComboBox>
+            <Button Content="Загрузить" Margin="0,0,5,0" Click="btnLoad_Click"/>
+            <Button Content="Добавить" Margin="0,0,5,0" Click="btnAdd_Click"/>
+            <Button Content="Сохранить" Margin="0,0,5,0" Click="btnSave_Click"/>
+            <Button Content="Удалить" Click="btnDelete_Click"/>
+        </StackPanel>
+        <DataGrid x:Name="dgv" AutoGenerateColumns="True" CanUserAddRows="False"/>
+    </DockPanel>
+</Window>
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 16 —  WindowAdmin.xaml.cs
+вставить
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Windows;
+
+namespace demowpf
+{
+    public partial class WindowAdmin : Window
+    {
+        DataTable dt = new DataTable();
+        SqlDataAdapter da;
+
+        public WindowAdmin() { InitializeComponent(); }
+
+        private void btnLoad_Click(object sender, RoutedEventArgs e)
+        {
+            var con = DB.Get(); con.Open();
+            string q = cmbTable.SelectedIndex == 0
+                ? "SELECT * FROM Products"
+                : "SELECT * FROM Users";
+            da = new SqlDataAdapter(q, con);
+            new SqlCommandBuilder(da);
+            dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            dgv.ItemsSource = dt.DefaultView;
+        }
+
+        private void btnSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            try { da.Update(dt); MessageBox.Show("Сохранено!"); }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+
+        private void btnAdd_Click(object sender, RoutedEventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            dt.Rows.Add(dt.NewRow());
+        }
+
+        private void btnDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgv.SelectedItem == null || da == null) return;
+            ((System.Data.DataRowView)dgv.SelectedItem).Row.Delete();
+            try { da.Update(dt); dt.AcceptChanges(); MessageBox.Show("Удалено!"); }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+    }
+}
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 17 — Фото товаров
+В папке проекта найди bin\Debug\ → создай там папку images → кинь туда фото - переименовывать в файле WindowCatalog.xaml.cs 
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+Справочник WPF — быстрое изменение внешнего вида
+
+Цвета — готовые названия
+
+
+White, Black, Gray, LightGray, DarkGray
+Red, DarkRed, OrangeRed
+Orange, DarkOrange
+Yellow, Gold
+Green, DarkGreen, LightGreen, SeaGreen
+Blue, DarkBlue, LightBlue, SteelBlue, CornflowerBlue
+Purple, Violet
+Pink, HotPink
+Beige, Ivory, Snow
+Transparent
+
+
+Или HEX: #2E8B57 #FF5733 #3498DB
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+вет фона ОКНА
+
+
+<Window Background="LightGray">
+<Window Background="#F0F0F0">
+<Window Background="White">
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+Цвет фона ПАНЕЛИ
+
+<StackPanel Background="WhiteSmoke">
+<DockPanel Background="#EEEEEE">
+<Border Background="LightBlue">
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+КНОПКА — всё про неё
+
+
+<Button Content="Войти"
+        Background="SteelBlue"
+        Foreground="White"
+        FontSize="14"
+        FontWeight="Bold"
+        Width="120"
+        Height="35"
+        Margin="5,0,5,0"
+        Padding="10,5"
+        BorderBrush="DarkBlue"
+        BorderThickness="2"
+        Cursor="Hand"/>
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+ТЕКСТ — TextBlock и TextBox
+
+
+<TextBlock Text="Привет"
+           FontSize="16"
+           FontWeight="Bold"
+           FontStyle="Italic"
+           Foreground="DarkBlue"
+           TextAlignment="Center"
+           Margin="0,5,0,5"/>
+
+<TextBox FontSize="14"
+         Foreground="Black"
+         Background="LightYellow"
+         BorderBrush="Gray"
+         BorderThickness="1"
+         Padding="5"/>
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ШРИФТ — значения FontWeight
+
+Thin, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black
+
+
+
+FontWeight="Bold"
+FontWeight="Normal"
+FontSize="12"   <!-- маленький -->
+FontSize="14"   <!-- обычный  -->
+FontSize="16"   <!-- средний  -->
+FontSize="20"   <!-- крупный  -->
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+MARGIN и PADDING — отступы
+
+
+Margin="все стороны"
+Margin="лево,верх,право,низ"
+
+
+
+Margin="5"          <!-- 5 со всех сторон -->
+Margin="10,5,10,5"  <!-- лево верх право низ -->
+Margin="0,0,5,0"    <!-- только справа 5 -->
+Margin="0,10,0,0"   <!-- только сверху 10 -->
+
+Padding="10"        <!-- внутренний отступ -->
+Padding="10,5"      <!-- лево/право=10, верх/низ=5 -->
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+РАЗМЕРЫ
+
+
+
+Width="100"         <!-- фиксированная ширина -->
+Height="35"         <!-- фиксированная высота -->
+Width="Auto"        <!-- по содержимому -->
+MinWidth="80"       <!-- минимум -->
+MaxWidth="200"      <!-- максимум -->
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ВЫРАВНИВАНИЕ
+
+
+HorizontalAlignment="Left"      <!-- лево   -->
+HorizontalAlignment="Center"    <!-- центр  -->
+HorizontalAlignment="Right"     <!-- право  -->
+HorizontalAlignment="Stretch"   <!-- растяжка на всю ширину -->
+
+VerticalAlignment="Top"         <!-- верх   -->
+VerticalAlignment="Center"      <!-- центр  -->
+VerticalAlignment="Bottom"      <!-- низ    -->
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ГРАНИЦА Border
+
+
+<Border BorderBrush="Gray"
+        BorderThickness="1"
+        Background="White"
+        CornerRadius="5"
+        Padding="10"
+        Margin="5">
+    <!-- сюда вставь содержимое -->
+</Border>
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+ПРИМЕРЫ — готовые стили кнопок
+
+
+Синяя:
+
+<Button Content="Войти" Background="#3498DB" Foreground="White"
+        Width="100" Height="30" FontSize="13"/>
+
+
+
+Зелёная:
+
+<Button Content="Сохранить" Background="#27AE60" Foreground="White"
+        Width="110" Height="30"/>
+
+
+Красная:
+
+<Button Content="Удалить" Background="#E74C3C" Foreground="White"
+        Width="90" Height="30"/>
+
+
+Серая обычная:
+
+<Button Content="Отмена" Background="LightGray" Foreground="Black"
+        Width="90" Height="30"/>
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+ПРИМЕР — красивая верхняя панель
+
+
+<StackPanel DockPanel.Dock="Top" 
+            Orientation="Horizontal" 
+            Background="#2C3E50"
+            Margin="0" Height="45">
+    <TextBox Width="160" Margin="8,7,5,0" Height="28"/>
+    <Button Content="Поиск" Background="#3498DB" Foreground="White"
+            Width="80" Height="28" Margin="0,7,5,0"/>
+    <Button Content="Админ" Background="#E74C3C" Foreground="White"
+            Width="70" Height="28" Margin="0,7,5,0"/>
+    <TextBlock Foreground="White" VerticalAlignment="Center" 
+               Margin="10,0,0,0" FontSize="13"/>
+</StackPanel>
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+           

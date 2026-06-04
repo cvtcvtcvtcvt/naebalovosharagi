@@ -1,0 +1,1011 @@
+! Заменить цвета всего приложения и подвигать кнопки чтобы работы были не одинаковые молю вас !
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 1 — Создай проект
+Visual Studio → File → New → Project →  Приложение Windows forms(.NET Framework) → назови demo 
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 2 — БД (открой server management - нажми соединиться - создать запрос(вставь код ниже) - выполнить запрос - переходи к приложению) !поменяй название бд - таблиц - продукта под свою тему!
+Меняй это! - CREATE DATABASE ShoeShop; USE ShoeShop; INSERT INTO Categories VALUES ('Кроссовки'); и всё что после кроссовок!
+
+
+
+создать запрос(вставь код ниже) - выполнить запрос:
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE DATABASE ShoeShop;
+GO
+USE ShoeShop;
+GO
+
+CREATE TABLE Users (
+    Id       INT PRIMARY KEY IDENTITY,
+    Login    NVARCHAR(50) NOT NULL,
+    Password NVARCHAR(10) NOT NULL,
+    Role     NVARCHAR(20) DEFAULT 'user'
+);
+
+CREATE TABLE Categories (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Manufacturers (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Suppliers (
+    Id   INT PRIMARY KEY IDENTITY,
+    Name NVARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Products (
+    Id             INT PRIMARY KEY IDENTITY,
+    Name           NVARCHAR(200) NOT NULL,
+    Price          DECIMAL(10,2) NOT NULL,
+    Stock          INT          DEFAULT 0,
+    Discount       DECIMAL(5,2) DEFAULT 0,
+    Unit           NVARCHAR(50),
+    Description    NVARCHAR(500),
+    CategoryId     INT REFERENCES Categories(Id),
+    ManufacturerId INT REFERENCES Manufacturers(Id),
+    SupplierId     INT REFERENCES Suppliers(Id)
+);
+GO
+
+INSERT INTO Users VALUES ('admin', '123', 'admin');
+INSERT INTO Users VALUES ('user1', 'abc', 'user');
+
+INSERT INTO Categories VALUES ('Кроссовки');
+INSERT INTO Categories VALUES ('Сапоги');
+INSERT INTO Categories VALUES ('Туфли');
+
+INSERT INTO Manufacturers VALUES (');
+INSERT INTO Manufacturers VALUES ('Adidas');
+
+INSERT INTO Suppliers VALUES ('ООО Поставщик 1');
+INSERT INTO Suppliers VALUES ('ООО Поставщик 2');
+
+INSERT INTO Products VALUES ('Кроссовки Nike', 5990, 10, 0,  'пара', 'Удобные кроссовки',  1, 1, 1);
+INSERT INTO Products VALUES ('Сапоги зимние',  8490, 0,  20, 'пара', 'Тёплые сапоги',      2, 2, 1);
+INSERT INTO Products VALUES ('Туфли классика', 4290, 5,  10, 'пара', 'Классические туфли', 3, 1, 2);
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 3 — Замени весь Program.cs
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+using System;
+using System.Windows.Forms;
+
+namespace demo
+{
+    static class Program
+    {
+        public static int UserId = 0;
+        public static string UserLogin = "";
+        public static string UserRole = "";
+
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new FormCatalog());
+        }
+    }
+}
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 4 — Создай файл = DB.cs (добавить + класс - в окне ставишь название <-- = вставляешь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+using System.Data.SqlClient;
+namespace demo
+{
+    static class DB
+    {
+        // строка подключения к БД (Server= имя твоего сервера из SSMS)
+        static string con = "Server=DESKTOP-41RFB3E;Database=ShoeShop;Trusted_Connection=True;";
+        public static SqlConnection Get() => new SqlConnection(con);
+    }
+}
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 5 — Создай файл = FormCatalog.cs (добавить + форма - в окне ставишь название <-- = вставляешь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace demo
+{
+    public partial class FormCatalog : Form
+    {
+        public static DataTable Cart = new DataTable();
+
+        public FormCatalog()
+        {
+            InitializeComponent();
+            Cart.Columns.Add("Название");
+            Cart.Columns.Add("Цена");
+            cmbSort.SelectedIndex = 0;
+            LoadProducts();
+        }
+
+        void LoadProducts(string search = "", string sort = "ASC")
+        {
+            flowPanel.Controls.Clear();
+            var con = DB.Get(); con.Open();
+            string q = $@"
+                SELECT p.Id, p.Name, p.Price, p.Stock, p.Discount,
+                       p.Description, p.Unit,
+                       c.Name as Category,
+                       m.Name as Manuf,
+                       s.Name as Supplier
+                FROM Products p
+                LEFT JOIN Categories c ON p.CategoryId = c.Id
+                LEFT JOIN Manufacturers m ON p.ManufacturerId = m.Id
+                LEFT JOIN Suppliers s ON p.SupplierId = s.Id
+                WHERE p.Name LIKE '%{search}%'
+                ORDER BY p.Price {sort}";
+            var da = new SqlDataAdapter(q, con);
+            var dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            foreach (DataRow r in dt.Rows)
+                flowPanel.Controls.Add(MakeCard(r));
+        }
+
+        // МЕНЯЙ ТОЛЬКО ИМЕНА ФАЙЛОВ ЗДЕСЬ:
+        string GetImage(int id)
+        {
+            if (id == 1) return "nike.png";
+            if (id == 2) return "nike.png";
+            if (id == 3) return "nike.png";
+            return "";
+        }
+
+        Panel MakeCard(DataRow r)
+        {
+            decimal discount = r["Discount"] == DBNull.Value ? 0 : Convert.ToDecimal(r["Discount"]);
+            int stock = r["Stock"] == DBNull.Value ? 0 : Convert.ToInt32(r["Stock"]);
+            decimal price = Convert.ToDecimal(r["Price"]);
+            decimal finalPrice = price * (1 - discount / 100);
+
+            var p = new Panel
+            {
+                Width = 220,
+                Height = 350,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(8)
+            };
+
+            if (stock == 0) p.BackColor = Color.LightBlue;
+            else if (discount > 15) p.BackColor = ColorTranslator.FromHtml("#2E8B57");
+
+            int top = 5;
+
+            // фото
+            string imgPath = Application.StartupPath + @"\images\" + GetImage(Convert.ToInt32(r["Id"]));
+            var pic = new PictureBox { Width = 205, Height = 90, Top = top, Left = 5, SizeMode = PictureBoxSizeMode.Zoom };
+            if (System.IO.File.Exists(imgPath))
+                pic.Image = Image.FromFile(imgPath);
+            p.Controls.Add(pic);
+            top += 95;
+
+            p.Controls.Add(new Label { Text = $"{r["Category"]} | {r["Name"]}", Top = top, Left = 5, Width = 205, Height = 30, Font = new Font("Arial", 8, FontStyle.Bold), AutoSize = false });
+            top += 32;
+
+            p.Controls.Add(new Label { Text = "Описание: " + r["Description"], Top = top, Left = 5, Width = 205 });
+            top += 20;
+
+            p.Controls.Add(new Label { Text = "Произв: " + r["Manuf"], Top = top, Left = 5, Width = 205 });
+            top += 20;
+
+            p.Controls.Add(new Label { Text = "Поставщик: " + r["Supplier"], Top = top, Left = 5, Width = 205 });
+            top += 20;
+
+            if (discount > 0)
+            {
+                p.Controls.Add(new Label { Text = price + " руб.", Top = top, Left = 5, Width = 100, ForeColor = Color.Red, Font = new Font("Arial", 8, FontStyle.Strikeout) });
+                p.Controls.Add(new Label { Text = finalPrice.ToString("F0") + " руб.", Top = top, Left = 108, Width = 100 });
+            }
+            else
+            {
+                p.Controls.Add(new Label { Text = price + " руб.", Top = top, Left = 5, Width = 205 });
+            }
+            top += 20;
+
+            p.Controls.Add(new Label { Text = $"Ед: {r["Unit"]}   Склад: {stock} шт.", Top = top, Left = 5, Width = 205 });
+            top += 20;
+
+            p.Controls.Add(new Label { Text = "Скидка: " + discount + "%", Top = top, Left = 5, Width = 205 });
+            top += 25;
+
+            var btn = new Button { Text = "В корзину", Top = top, Left = 5, Width = 205, Tag = r };
+            btn.Click += AddToCart;
+            p.Controls.Add(btn);
+
+            return p;
+        }
+
+        void AddToCart(object sender, EventArgs e)
+        {
+            if (Program.UserId == 0) { MessageBox.Show("Сначала войдите!"); return; }
+            var r = (DataRow)((Button)sender).Tag;
+            Cart.Rows.Add(r["Name"], r["Price"]);
+            MessageBox.Show("Добавлено в корзину!");
+        }
+
+        private void btnLogin_Click(object sender, EventArgs e)
+        {
+            if (Program.UserId == 0) new FormAuth(this).ShowDialog();
+            else new FormProfile(this).ShowDialog();
+        }
+
+        public void UpdateButtons()
+        {
+            btnLogin.Text = Program.UserId == 0 ? "Войти" : "Профиль";
+            btnAdmin.Visible = Program.UserRole == "admin";
+            lblUser.Text = Program.UserId == 0 ? "" : Program.UserLogin;
+        }
+
+        private void txtSearch_TextChanged(object sender, EventArgs e)
+            => LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+
+        private void cmbSort_SelectedIndexChanged(object sender, EventArgs e)
+            => LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+
+        private void btnCart_Click(object sender, EventArgs e) => new FormCart().ShowDialog();
+        private void btnAdmin_Click(object sender, EventArgs e) => new FormAdmin().ShowDialog();
+        private void btnRefresh_Click(object sender, EventArgs e) => LoadProducts();
+    }
+}
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 6 — Открой файл дизайна = FormCatalog.Designer.cs (вставь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+namespace demo
+{
+    partial class FormCatalog
+    {
+        private System.ComponentModel.IContainer components = null;
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null)) components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.panelTop = new System.Windows.Forms.Panel();
+            this.lblUser = new System.Windows.Forms.Label();
+            this.txtSearch = new System.Windows.Forms.TextBox();
+            this.cmbSort = new System.Windows.Forms.ComboBox();
+            this.btnCart = new System.Windows.Forms.Button();
+            this.btnRefresh = new System.Windows.Forms.Button();
+            this.btnAdmin = new System.Windows.Forms.Button();
+            this.btnLogin = new System.Windows.Forms.Button();
+            this.flowPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.SuspendLayout();
+
+            // верхняя панель
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelTop.Height = 40;
+            this.panelTop.Controls.Add(this.txtSearch);
+            this.panelTop.Controls.Add(this.cmbSort);
+            this.panelTop.Controls.Add(this.btnCart);
+            this.panelTop.Controls.Add(this.btnRefresh);
+            this.panelTop.Controls.Add(this.btnAdmin);
+            this.panelTop.Controls.Add(this.btnLogin);
+            this.panelTop.Controls.Add(this.lblUser);
+
+            // поле поиска
+            this.txtSearch.Location = new System.Drawing.Point(5, 10);
+            this.txtSearch.Width = 150;
+            this.txtSearch.TextChanged += new System.EventHandler(this.txtSearch_TextChanged);
+
+            // выпадающий список сортировки
+            this.cmbSort.Location = new System.Drawing.Point(165, 8);
+            this.cmbSort.Width = 120;
+            this.cmbSort.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbSort.Items.AddRange(new object[] { "По цене ↑", "По цене ↓" });
+            this.cmbSort.SelectedIndexChanged += new System.EventHandler(this.cmbSort_SelectedIndexChanged);
+
+            // кнопка корзина
+            this.btnCart.Text = "Корзина";
+            this.btnCart.Location = new System.Drawing.Point(295, 8);
+            this.btnCart.Click += new System.EventHandler(this.btnCart_Click);
+
+            // кнопка обновить
+            this.btnRefresh.Text = "Обновить";
+            this.btnRefresh.Location = new System.Drawing.Point(385, 8);
+            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
+
+            // кнопка админ — скрыта по умолчанию
+            this.btnAdmin.Text = "Админ";
+            this.btnAdmin.Location = new System.Drawing.Point(475, 8);
+            this.btnAdmin.Visible = false;
+            this.btnAdmin.Click += new System.EventHandler(this.btnAdmin_Click);
+
+            // кнопка войти/профиль
+            this.btnLogin.Text = "Войти";
+            this.btnLogin.Location = new System.Drawing.Point(565, 8);
+            this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
+
+            // имя пользователя справа
+            this.lblUser.Location = new System.Drawing.Point(660, 12);
+            this.lblUser.Width = 120;
+            this.lblUser.Text = "";
+
+            // панель карточек
+            this.flowPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowPanel.AutoScroll = true;
+            this.flowPanel.WrapContents = true;
+
+            this.ClientSize = new System.Drawing.Size(900, 550);
+            this.Text = "Магазин обуви";
+            this.Controls.Add(this.flowPanel);
+            this.Controls.Add(this.panelTop);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Panel panelTop;
+        private System.Windows.Forms.Label lblUser;
+        private System.Windows.Forms.TextBox txtSearch;
+        private System.Windows.Forms.ComboBox cmbSort;
+        private System.Windows.Forms.Button btnCart;
+        private System.Windows.Forms.Button btnRefresh;
+        private System.Windows.Forms.Button btnAdmin;
+        private System.Windows.Forms.Button btnLogin;
+        private System.Windows.Forms.FlowLayoutPanel flowPanel;
+    }
+}
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 7 — Создай файл = FormAuth.cs (добавить + форма - в окне ставишь название <-- = вставляешь весь код) 
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+using System;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+
+namespace demo
+{
+    public partial class FormAuth : Form
+    {
+        FormCatalog parent;
+
+        // parent = null когда открывается при старте
+        public FormAuth(FormCatalog p)
+        {
+            InitializeComponent();
+            parent = p;
+        }
+
+        // проверка полей перед входом или регистрацией
+        bool Check()
+        {
+            if (txtLogin.Text.Trim() == "") { MessageBox.Show("Введите логин!"); return false; }
+            if (txtPass.Text.Trim() == "") { MessageBox.Show("Введите пароль!"); return false; }
+            if (txtPass.Text.Length > 3) { MessageBox.Show("Пароль макс 3 символа!"); return false; }
+            return true;
+        }
+
+        // кнопка Войти
+        private void btnVhod_Click(object sender, EventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+            var cmd = new SqlCommand(
+                "SELECT * FROM Users WHERE Login=@l AND Password=@p", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Text);
+            var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                Program.UserId = (int)r["Id"];
+                Program.UserLogin = r["Login"].ToString();
+                Program.UserRole = r["Role"].ToString();
+                con.Close();
+                // обновляем кнопки в каталоге если он уже открыт
+                if (parent != null) parent.UpdateButtons();
+                Close();
+            }
+            else { con.Close(); MessageBox.Show("Неверный логин или пароль!"); }
+        }
+
+        // кнопка Зарегистрироваться
+        private void btnReg_Click(object sender, EventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+
+            // проверяем не занят ли логин
+            var check = new SqlCommand(
+                "SELECT COUNT(*) FROM Users WHERE Login=@l", con);
+            check.Parameters.AddWithValue("@l", txtLogin.Text);
+            int count = (int)check.ExecuteScalar();
+            if (count > 0) { con.Close(); MessageBox.Show("Логин уже занят!"); return; }
+
+            var cmd = new SqlCommand(
+                "INSERT INTO Users(Login,Password,Role) VALUES(@l,@p,'user')", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Text);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Готово! Теперь войдите.");
+        }
+
+        // кнопка Войти как гость — просто закрываем окно
+        private void btnGuest_Click(object sender, EventArgs e) => Close();
+    }
+}
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 8 — Открой файл дизайна = FormAuth.Designer.cs (вставь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+namespace demo
+{
+    partial class FormAuth
+    {
+        private System.ComponentModel.IContainer components = null;
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null)) components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.lblLogin = new System.Windows.Forms.Label();
+            this.lblPass = new System.Windows.Forms.Label();
+            this.txtLogin = new System.Windows.Forms.TextBox();
+            this.txtPass = new System.Windows.Forms.TextBox();
+            this.btnVhod = new System.Windows.Forms.Button();
+            this.btnReg = new System.Windows.Forms.Button();
+            this.btnGuest = new System.Windows.Forms.Button();
+            this.SuspendLayout();
+
+            this.lblLogin.Text = "Логин:";
+            this.lblLogin.Location = new System.Drawing.Point(50, 12);
+            this.lblLogin.Width = 200;
+
+            this.txtLogin.Location = new System.Drawing.Point(50, 30);
+            this.txtLogin.Width = 200;
+
+            this.lblPass.Text = "Пароль (макс 3 символа):";
+            this.lblPass.Location = new System.Drawing.Point(50, 58);
+            this.lblPass.Width = 200;
+
+            this.txtPass.Location = new System.Drawing.Point(50, 75);
+            this.txtPass.Width = 200;
+            this.txtPass.PasswordChar = '*';
+
+            // кнопка войти
+            this.btnVhod.Text = "Войти";
+            this.btnVhod.Location = new System.Drawing.Point(50, 115);
+            this.btnVhod.Click += new System.EventHandler(this.btnVhod_Click);
+
+            // кнопка регистрация
+            this.btnReg.Text = "Зарегистрироваться";
+            this.btnReg.Location = new System.Drawing.Point(150, 115);
+            this.btnReg.Width = 150;
+            this.btnReg.Click += new System.EventHandler(this.btnReg_Click);
+
+            // кнопка войти как гость
+            this.btnGuest.Text = "Войти как гость";
+            this.btnGuest.Location = new System.Drawing.Point(50, 150);
+            this.btnGuest.Width = 250;
+            this.btnGuest.Click += new System.EventHandler(this.btnGuest_Click);
+
+            this.ClientSize = new System.Drawing.Size(360, 210);
+            this.Text = "Вход / Регистрация";
+            this.Controls.Add(this.lblLogin);
+            this.Controls.Add(this.lblPass);
+            this.Controls.Add(this.txtLogin);
+            this.Controls.Add(this.txtPass);
+            this.Controls.Add(this.btnVhod);
+            this.Controls.Add(this.btnReg);
+            this.Controls.Add(this.btnGuest);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label lblLogin;
+        private System.Windows.Forms.Label lblPass;
+        private System.Windows.Forms.TextBox txtLogin;
+        private System.Windows.Forms.TextBox txtPass;
+        private System.Windows.Forms.Button btnVhod;
+        private System.Windows.Forms.Button btnReg;
+        private System.Windows.Forms.Button btnGuest;
+    }
+}
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 9 — Создай файл = FormProfile.cs (добавить + форма - в окне ставишь название <-- = вставляешь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+using System;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+
+namespace demo
+{
+    public partial class FormProfile : Form
+    {
+        FormCatalog parent;
+
+        public FormProfile(FormCatalog p)
+        {
+            InitializeComponent();
+            parent = p;
+            // показываем логин текущего пользователя
+            lblLogin.Text = "Логин: " + Program.UserLogin;
+            lblRole.Text = "Роль: " + Program.UserRole;
+        }
+
+        // кнопка Изменить пароль
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            if (txtPass.Text.Trim() == "") { MessageBox.Show("Введите новый пароль!"); return; }
+            if (txtPass.Text.Length > 3) { MessageBox.Show("Пароль макс 3 символа!"); return; }
+            var con = DB.Get(); con.Open();
+            var cmd = new SqlCommand(
+                "UPDATE Users SET Password=@p WHERE Id=@id", con);
+            cmd.Parameters.AddWithValue("@p", txtPass.Text);
+            cmd.Parameters.AddWithValue("@id", Program.UserId);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Пароль изменён!");
+        }
+
+        // кнопка Выйти из аккаунта
+        private void btnLogout_Click(object sender, EventArgs e)
+        {
+            Program.UserId = 0;
+            Program.UserLogin = "";
+            Program.UserRole = "";
+            parent.UpdateButtons();
+            Close();
+        }
+    }
+}
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 10 — Открой файл дизайна = FormProfile.Designer.cs (вставь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+namespace demo
+{
+    partial class FormProfile
+    {
+        private System.ComponentModel.IContainer components = null;
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null)) components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.lblLogin = new System.Windows.Forms.Label();
+            this.lblRole = new System.Windows.Forms.Label();
+            this.lblPassHint = new System.Windows.Forms.Label();
+            this.txtPass = new System.Windows.Forms.TextBox();
+            this.btnSave = new System.Windows.Forms.Button();
+            this.btnLogout = new System.Windows.Forms.Button();
+            this.SuspendLayout();
+
+            // логин пользователя
+            this.lblLogin.Text = "Логин: ";
+            this.lblLogin.Location = new System.Drawing.Point(50, 20);
+            this.lblLogin.Width = 250;
+
+            // роль пользователя
+            this.lblRole.Text = "Роль: ";
+            this.lblRole.Location = new System.Drawing.Point(50, 40);
+            this.lblRole.Width = 250;
+
+            this.lblPassHint.Text = "Новый пароль (макс 3 символа):";
+            this.lblPassHint.Location = new System.Drawing.Point(50, 70);
+            this.lblPassHint.Width = 250;
+
+            this.txtPass.Location = new System.Drawing.Point(50, 90);
+            this.txtPass.Width = 200;
+            this.txtPass.PasswordChar = '*';
+
+            // кнопка сохранить пароль
+            this.btnSave.Text = "Изменить пароль";
+            this.btnSave.Location = new System.Drawing.Point(50, 125);
+            this.btnSave.Width = 140;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+
+            // кнопка выйти из аккаунта
+            this.btnLogout.Text = "Выйти";
+            this.btnLogout.Location = new System.Drawing.Point(50, 160);
+            this.btnLogout.Click += new System.EventHandler(this.btnLogout_Click);
+
+            this.ClientSize = new System.Drawing.Size(320, 220);
+            this.Text = "Профиль";
+            this.Controls.Add(this.lblLogin);
+            this.Controls.Add(this.lblRole);
+            this.Controls.Add(this.lblPassHint);
+            this.Controls.Add(this.txtPass);
+            this.Controls.Add(this.btnSave);
+            this.Controls.Add(this.btnLogout);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label lblLogin;
+        private System.Windows.Forms.Label lblRole;
+        private System.Windows.Forms.Label lblPassHint;
+        private System.Windows.Forms.TextBox txtPass;
+        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.Button btnLogout;
+    }
+}
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 11 — Создай файл = FormCart.cs (добавить + форма - в окне ставишь название <-- = вставляешь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+using System;
+using System.Windows.Forms;
+
+namespace demo
+{
+    public partial class FormCart : Form
+    {
+        public FormCart()
+        {
+            InitializeComponent();
+            // показываем содержимое корзины
+            dgv.DataSource = FormCatalog.Cart;
+        }
+
+        // кнопка очистить всю корзину
+        private void btnClear_Click(object sender, EventArgs e)
+        {
+            FormCatalog.Cart.Rows.Clear();
+        }
+    }
+}
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 12 — Открой файл дизайна = FormCart.Designer.cs (вставь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+namespace demo
+{
+    partial class FormCart
+    {
+        private System.ComponentModel.IContainer components = null;
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null)) components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.dgv = new System.Windows.Forms.DataGridView();
+            this.btnClear = new System.Windows.Forms.Button();
+            this.SuspendLayout();
+
+            // таблица товаров в корзине
+            this.dgv.Location = new System.Drawing.Point(0, 0);
+            this.dgv.Size = new System.Drawing.Size(480, 340);
+            this.dgv.AllowUserToAddRows = false;
+            this.dgv.ReadOnly = true;
+
+            // кнопка очистить
+            this.btnClear.Text = "Очистить корзину";
+            this.btnClear.Location = new System.Drawing.Point(170, 350);
+            this.btnClear.Click += new System.EventHandler(this.btnClear_Click);
+
+            this.ClientSize = new System.Drawing.Size(480, 390);
+            this.Text = "Корзина";
+            this.Controls.Add(this.dgv);
+            this.Controls.Add(this.btnClear);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.DataGridView dgv;
+        private System.Windows.Forms.Button btnClear;
+    }
+}
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 13 — Создай файл = FormAdmin.cs (добавить + форма - в окне ставишь название <-- = вставляешь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+
+namespace demo
+{
+    public partial class FormAdmin : Form
+    {
+        DataTable dt = new DataTable();
+        SqlDataAdapter da;
+
+        public FormAdmin() { InitializeComponent(); }
+
+        // загрузить выбранную таблицу
+        private void btnLoad_Click(object sender, EventArgs e)
+        {
+            var con = DB.Get(); con.Open();
+            string q = cmbTable.SelectedIndex == 0
+                ? "SELECT * FROM Products"
+                : "SELECT * FROM Users";
+            da = new SqlDataAdapter(q, con);
+            new SqlCommandBuilder(da);
+            dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            dgv.DataSource = dt;
+            dgv.DataError += (s, ex) => { }; // подавляем ошибку форматирования
+        }
+
+        // сохранить изменения — редактирование прямо в таблице
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            try
+            {
+                dgv.EndEdit();
+                da.Update(dt);
+                MessageBox.Show("Сохранено!");
+            }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+
+        // добавить пустую строку для заполнения
+        private void btnAdd_Click(object sender, EventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            var row = dt.NewRow();
+            if (cmbTable.SelectedIndex == 0) // Products
+            {
+                row["Name"] = "Новый товар";
+                row["Price"] = 0;
+                row["Stock"] = 0;
+                row["Discount"] = 0;
+                row["Unit"] = "шт.";
+                row["Description"] = "";
+                row["CategoryId"] = 1;
+                row["ManufacturerId"] = 1;
+                row["SupplierId"] = 1;
+            }
+            dt.Rows.Add(row);
+        }
+
+        // удалить выбранную строку
+        private void btnDelete_Click(object sender, EventArgs e)
+        {
+            if (dgv.CurrentRow == null || da == null) return;
+            dt.Rows[dgv.CurrentRow.Index].Delete();
+            try
+            {
+                da.Update(dt);
+                dt.AcceptChanges();
+                MessageBox.Show("Удалено!");
+            }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+    }
+}
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Шаг 14 — Открой файл дизайна = FormAdmin.Designer.cs (вставь весь код)
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+namespace demo
+{
+    partial class FormAdmin
+    {
+        private System.ComponentModel.IContainer components = null;
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null)) components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.cmbTable = new System.Windows.Forms.ComboBox();
+            this.btnLoad = new System.Windows.Forms.Button();
+            this.btnAdd = new System.Windows.Forms.Button();
+            this.btnSave = new System.Windows.Forms.Button();
+            this.btnDelete = new System.Windows.Forms.Button();
+            this.dgv = new System.Windows.Forms.DataGridView();
+            this.SuspendLayout();
+
+            // выбор таблицы
+            this.cmbTable.Location = new System.Drawing.Point(10, 10);
+            this.cmbTable.Width = 130;
+            this.cmbTable.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbTable.Items.AddRange(new object[] { "Товары", "Пользователи" });
+            this.cmbTable.SelectedIndex = 0;
+
+            // загрузить таблицу
+            this.btnLoad.Text = "Загрузить";
+            this.btnLoad.Location = new System.Drawing.Point(150, 8);
+            this.btnLoad.Click += new System.EventHandler(this.btnLoad_Click);
+
+            // добавить строку
+            this.btnAdd.Text = "Добавить";
+            this.btnAdd.Location = new System.Drawing.Point(240, 8);
+            this.btnAdd.Click += new System.EventHandler(this.btnAdd_Click);
+
+            // сохранить изменения
+            this.btnSave.Text = "Сохранить";
+            this.btnSave.Location = new System.Drawing.Point(330, 8);
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+
+            // удалить строку
+            this.btnDelete.Text = "Удалить";
+            this.btnDelete.Location = new System.Drawing.Point(420, 8);
+            this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
+
+            // таблица данных
+            this.dgv.Location = new System.Drawing.Point(0, 45);
+            this.dgv.Size = new System.Drawing.Size(900, 450);
+            this.dgv.AllowUserToAddRows = false;
+
+            this.ClientSize = new System.Drawing.Size(900, 510);
+            this.Text = "Админ панель";
+            this.Controls.Add(this.cmbTable);
+            this.Controls.Add(this.btnLoad);
+            this.Controls.Add(this.btnAdd);
+            this.Controls.Add(this.btnSave);
+            this.Controls.Add(this.btnDelete);
+            this.Controls.Add(this.dgv);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.ComboBox cmbTable;
+        private System.Windows.Forms.Button btnLoad;
+        private System.Windows.Forms.Button btnAdd;
+        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.Button btnDelete;
+        private System.Windows.Forms.DataGridView dgv;
+    }
+}
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+Редактировать цвета!
+
+1.Открываем страницу-конструктор
+
+2.Правой кнопкой мыши - свойства - открылось меню - самое первое BackColor (по умол, белый) любой ставьте !
+
+3. Заменить цвета всего приложения и подвигать кнопки чтобы работы были не одинаковые молю вас
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,953 @@
+====================================================================================
+ WPF + SQLite 
+====================================================================================
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 1 — Создай проект
+Visual Studio → File → New → Project → WPF App (.NET Framework) → назови demolite → .NET Framework 4.7.2
+-------------------------------------------------------------------------------------
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 2 — Установи SQLite (NuGet)
+Tools → NuGet Package Manager → Package Manager Console → вставь и Enter:
+-------------------------------------------------------------------------------------
+
+Install-Package System.Data.SQLite.Core
+
+Жди надписи "Successfully installed"
+Если ошибка — попробуй:
+Install-Package System.Data.SQLite --version 1.0.118.0
+
+ЕСЛИ НЕ СТАВИТСЯ ЧЕРЕЗ NUGET — скачай вручную:
+https://system.data.sqlite.org/downloads/1.0.119.0/sqlite-netFx46-binary-x64-2015-1.0.119.0.zip
+Распакуй → возьми System.Data.SQLite.dll и SQLite.Interop.dll
+ПКМ на проект → Add → Reference → Browse → выбери System.Data.SQLite.dll → OK
+Оба файла скопируй в bin\Debug\
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 3 — Удали MainWindow.xaml
+ПКМ на MainWindow.xaml → Delete
+-------------------------------------------------------------------------------------
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 4 — DB.cs
+ПКМ на проект → Add → Class → DB.cs
+-------------------------------------------------------------------------------------
+
+using System.Data.SQLite;
+using System.IO;
+
+namespace demolite
+{
+    static class DB
+    {
+        static string path = "shoeshop.db";
+        static string con  = "Data Source=shoeshop.db;Version=3;";
+
+        public static SQLiteConnection Get() => new SQLiteConnection(con);
+
+        // Вызывается один раз при старте — создаёт таблицы и данные
+        public static void Init()
+        {
+            if (File.Exists(path)) return; // уже создана — не трогаем
+
+            using (var c = Get()) { c.Open();
+            var cmd = c.CreateCommand();
+            cmd.CommandText = @"
+CREATE TABLE Users (
+    Id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    Login    TEXT NOT NULL,
+    Password TEXT NOT NULL,
+    Role     TEXT DEFAULT 'user'
+);
+CREATE TABLE Categories (
+    Id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL
+);
+CREATE TABLE Manufacturers (
+    Id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL
+);
+CREATE TABLE Suppliers (
+    Id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL
+);
+CREATE TABLE Products (
+    Id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name           TEXT NOT NULL,
+    Price          REAL NOT NULL,
+    Stock          INTEGER DEFAULT 0,
+    Discount       REAL DEFAULT 0,
+    Unit           TEXT,
+    Description    TEXT,
+    CategoryId     INTEGER REFERENCES Categories(Id),
+    ManufacturerId INTEGER REFERENCES Manufacturers(Id),
+    SupplierId     INTEGER REFERENCES Suppliers(Id)
+);
+
+INSERT INTO Users VALUES (1,'admin','123','admin');
+INSERT INTO Users VALUES (2,'user1','abc','user');
+INSERT INTO Categories VALUES (1,'Кроссовки');
+INSERT INTO Categories VALUES (2,'Сапоги');
+INSERT INTO Categories VALUES (3,'Туфли');
+INSERT INTO Manufacturers VALUES (1,'Nike');
+INSERT INTO Manufacturers VALUES (2,'Adidas');
+INSERT INTO Suppliers VALUES (1,'ООО Поставщик 1');
+INSERT INTO Suppliers VALUES (2,'ООО Поставщик 2');
+INSERT INTO Products VALUES (1,'Кроссовки Nike',5990,10,0,'пара','Удобные кроссовки',1,1,1);
+INSERT INTO Products VALUES (2,'Сапоги зимние',8490,0,20,'пара','Тёплые сапоги',2,2,1);
+INSERT INTO Products VALUES (3,'Туфли классика',4290,5,10,'пара','Классические туфли',3,1,2);
+";
+            cmd.ExecuteNonQuery(); }
+        }
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 5 — App.xaml
+Замени полностью:
+-------------------------------------------------------------------------------------
+
+<Application x:Class="demolite.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="WindowAuth.xaml">
+    <Application.Resources/>
+</Application>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 6 — App.xaml.cs
+Замени полностью:
+-------------------------------------------------------------------------------------
+
+using System.Windows;
+
+namespace demolite
+{
+    public partial class App : Application
+    {
+        public static int    UserId    = 0;
+        public static string UserLogin = "";
+        public static string UserRole  = "";
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
+            DB.Init(); // создаём БД если нет — ВАЖНО!
+        }
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 7 — WindowAuth.xaml
+ПКМ на проект → Add → Window → WindowAuth.xaml
+-------------------------------------------------------------------------------------
+
+<Window x:Class="demolite.WindowAuth"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Вход / Регистрация" Height="230" Width="320"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#F5F5F5">
+    <StackPanel Margin="30">
+        <TextBlock Text="Логин:" FontSize="13"/>
+        <TextBox x:Name="txtLogin" Margin="0,2,0,8" Height="28" FontSize="13"/>
+        <TextBlock Text="Пароль (макс 3 символа):" FontSize="13"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,12" Height="28" FontSize="13"/>
+        <WrapPanel>
+            <Button Content="Войти" Width="80" Height="30"
+                    Background="#3498DB" Foreground="White"
+                    Click="btnVhod_Click" Margin="0,0,5,0"/>
+            <Button Content="Зарегистрироваться" Width="150" Height="30"
+                    Background="#27AE60" Foreground="White"
+                    Click="btnReg_Click"/>
+        </WrapPanel>
+        <Button Content="Войти как гость" Margin="0,8,0,0" Height="30"
+                Background="LightGray" Click="btnGuest_Click"/>
+    </StackPanel>
+</Window>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 8 — WindowAuth.xaml.cs
+Вставить:
+-------------------------------------------------------------------------------------
+
+using System.Data.SQLite;
+using System.Windows;
+
+namespace demolite
+{
+    public partial class WindowAuth : Window
+    {
+        public WindowAuth() { InitializeComponent(); }
+
+        bool Check()
+        {
+            if (txtLogin.Text.Trim() == "")   { MessageBox.Show("Введите логин!"); return false; }
+            if (txtPass.Password.Trim() == "") { MessageBox.Show("Введите пароль!"); return false; }
+            if (txtPass.Password.Length > 3)  { MessageBox.Show("Пароль макс 3 символа!"); return false; }
+            return true;
+        }
+
+        private void btnVhod_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+            var cmd = new SQLiteCommand("SELECT * FROM Users WHERE Login=@l AND Password=@p", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Password);
+            var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                App.UserId    = r.GetInt32(0);
+                App.UserLogin = r["Login"].ToString();
+                App.UserRole  = r["Role"].ToString();
+                con.Close();
+                new WindowCatalog().Show();
+                Close();
+            }
+            else { con.Close(); MessageBox.Show("Неверный логин или пароль!"); }
+        }
+
+        private void btnReg_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Check()) return;
+            var con = DB.Get(); con.Open();
+            var check = new SQLiteCommand("SELECT COUNT(*) FROM Users WHERE Login=@l", con);
+            check.Parameters.AddWithValue("@l", txtLogin.Text);
+            if ((long)check.ExecuteScalar() > 0) { con.Close(); MessageBox.Show("Логин занят!"); return; }
+            var cmd = new SQLiteCommand("INSERT INTO Users(Login,Password,Role) VALUES(@l,@p,'user')", con);
+            cmd.Parameters.AddWithValue("@l", txtLogin.Text);
+            cmd.Parameters.AddWithValue("@p", txtPass.Password);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Готово! Теперь войдите.");
+        }
+
+        private void btnGuest_Click(object sender, RoutedEventArgs e)
+        {
+            new WindowCatalog().Show();
+            Close();
+        }
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 9 — WindowCatalog.xaml
+ПКМ на проект → Add → Window → WindowCatalog.xaml
+-------------------------------------------------------------------------------------
+
+<Window x:Class="demolite.WindowCatalog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Магазин обуви" Height="580" Width="950"
+        WindowStartupLocation="CenterScreen"
+        Background="#FAFAFA">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                    Background="#2C3E50" Height="45">
+            <TextBox x:Name="txtSearch" Width="160" Margin="8,7,5,0" Height="28"
+                     VerticalContentAlignment="Center"
+                     TextChanged="txtSearch_TextChanged"/>
+            <ComboBox x:Name="cmbSort" Width="120" Margin="0,7,5,0" Height="28"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="cmbSort_Changed">
+                <ComboBoxItem Content="По цене ↑" IsSelected="True"/>
+                <ComboBoxItem Content="По цене ↓"/>
+            </ComboBox>
+            <Button Content="Корзина"  Width="75" Height="28" Margin="0,7,5,0"
+                    Background="#E67E22" Foreground="White" Click="btnCart_Click"/>
+            <Button Content="Обновить" Width="75" Height="28" Margin="0,7,5,0"
+                    Background="#7F8C8D" Foreground="White" Click="btnRefresh_Click"/>
+            <Button x:Name="btnAdmin" Content="Админ" Width="65" Height="28" Margin="0,7,5,0"
+                    Background="#E74C3C" Foreground="White"
+                    Visibility="Collapsed" Click="btnAdmin_Click"/>
+            <Button x:Name="btnLogin" Content="Войти" Width="75" Height="28" Margin="0,7,5,0"
+                    Background="#3498DB" Foreground="White" Click="btnLogin_Click"/>
+            <TextBlock x:Name="lblUser" Foreground="White"
+                       VerticalAlignment="Center" Margin="10,0,0,0" FontSize="13"/>
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <WrapPanel x:Name="wrapPanel" Margin="5"/>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 10 — WindowCatalog.xaml.cs
+Вставить:
+-------------------------------------------------------------------------------------
+
+using System;
+using System.Data;
+using System.Data.SQLite;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace demolite
+{
+    public partial class WindowCatalog : Window
+    {
+        public static DataTable Cart = new DataTable();
+        bool isLoaded = false;
+
+        public WindowCatalog()
+        {
+            InitializeComponent();
+            this.Loaded += Window_Loaded;
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!Cart.Columns.Contains("Название"))
+            {
+                Cart.Columns.Add("Название");
+                Cart.Columns.Add("Цена");
+            }
+            isLoaded = true;
+            UpdateButtons();
+            LoadProducts();
+        }
+
+        void LoadProducts(string search = "", string sort = "ASC")
+        {
+            if (!isLoaded) return;
+            wrapPanel.Children.Clear();
+            var con = DB.Get(); con.Open();
+            string q = $@"
+                SELECT p.Id, p.Name, p.Price, p.Stock, p.Discount,
+                       p.Description, p.Unit,
+                       c.Name as Category, m.Name as Manuf, s.Name as Supplier
+                FROM Products p
+                LEFT JOIN Categories c ON p.CategoryId=c.Id
+                LEFT JOIN Manufacturers m ON p.ManufacturerId=m.Id
+                LEFT JOIN Suppliers s ON p.SupplierId=s.Id
+                WHERE p.Name LIKE '%{search}%'
+                ORDER BY p.Price {sort}";
+            var da = new SQLiteDataAdapter(q, con);
+            var dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            foreach (DataRow r in dt.Rows)
+                wrapPanel.Children.Add(MakeCard(r));
+        }
+
+        // МЕНЯЙ ТОЛЬКО ИМЕНА ФАЙЛОВ ЗДЕСЬ
+        string GetImage(int id)
+        {
+            if (id == 1) return "nike.png";
+            if (id == 2) return "sapogi.png";
+            if (id == 3) return "tufli.png";
+            return "";
+        }
+
+        Border MakeCard(DataRow r)
+        {
+            decimal discount   = r["Discount"] == DBNull.Value ? 0 : Convert.ToDecimal(r["Discount"]);
+            int     stock      = r["Stock"]    == DBNull.Value ? 0 : Convert.ToInt32(r["Stock"]);
+            decimal price      = Convert.ToDecimal(r["Price"]);
+            decimal finalPrice = price * (1 - discount / 100);
+
+            Brush bg = Brushes.White;
+            if (stock == 0)         bg = Brushes.LightBlue;
+            else if (discount > 15) bg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E8B57"));
+
+            var stack = new StackPanel { Width = 210, Margin = new Thickness(2) };
+
+            // ФОТО
+            string imgPath = System.IO.Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "images",
+                GetImage(Convert.ToInt32(r["Id"])));
+            var img = new Image { Height = 90, Width = 205, Stretch = Stretch.Uniform, Margin = new Thickness(0,0,0,4) };
+            if (System.IO.File.Exists(imgPath))
+                img.Source = new BitmapImage(new Uri(imgPath));
+            stack.Children.Add(img);
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = $"{r["Category"]} | {r["Name"]}",
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap
+            });
+            stack.Children.Add(new TextBlock { Text = "Описание: "  + r["Description"], TextWrapping = TextWrapping.Wrap });
+            stack.Children.Add(new TextBlock { Text = "Произв: "    + r["Manuf"] });
+            stack.Children.Add(new TextBlock { Text = "Поставщик: " + r["Supplier"] });
+
+            if (discount > 0)
+            {
+                var pp = new StackPanel { Orientation = Orientation.Horizontal };
+                pp.Children.Add(new TextBlock
+                {
+                    Text = price + " руб.  ",
+                    TextDecorations = TextDecorations.Strikethrough,
+                    Foreground = Brushes.Red
+                });
+                pp.Children.Add(new TextBlock { Text = finalPrice.ToString("F0") + " руб." });
+                stack.Children.Add(pp);
+            }
+            else
+                stack.Children.Add(new TextBlock { Text = price + " руб." });
+
+            stack.Children.Add(new TextBlock { Text = $"Ед: {r["Unit"]}   Склад: {stock} шт." });
+            stack.Children.Add(new TextBlock { Text = "Скидка: " + discount + "%" });
+
+            var btn = new Button { Content = "В корзину", Tag = r, Margin = new Thickness(0,4,0,0),
+                                   Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                                   Foreground = Brushes.White };
+            btn.Click += AddToCart;
+            stack.Children.Add(btn);
+
+            return new Border
+            {
+                Width = 220, BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1),
+                Background = bg, Margin = new Thickness(4), Padding = new Thickness(6),
+                Child = stack
+            };
+        }
+
+        void AddToCart(object sender, RoutedEventArgs e)
+        {
+            if (App.UserId == 0) { MessageBox.Show("Сначала войдите!"); return; }
+            var r = (DataRow)((Button)sender).Tag;
+            Cart.Rows.Add(r["Name"], r["Price"]);
+            MessageBox.Show("Добавлено в корзину!");
+        }
+
+        public void UpdateButtons()
+        {
+            if (!isLoaded) return;
+            btnLogin.Content    = App.UserId == 0 ? "Войти" : "Профиль";
+            btnAdmin.Visibility = App.UserRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+            lblUser.Text        = App.UserLogin;
+        }
+
+        private void btnLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (App.UserId == 0) new WindowAuth().ShowDialog();
+            else new WindowProfile(this).ShowDialog();
+            UpdateButtons();
+        }
+
+        private void txtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!isLoaded) return;
+            LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+        }
+
+        private void cmbSort_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (!isLoaded) return;
+            LoadProducts(txtSearch.Text, cmbSort.SelectedIndex == 0 ? "ASC" : "DESC");
+        }
+
+        private void btnCart_Click(object sender, RoutedEventArgs e)    => new WindowCart().ShowDialog();
+        private void btnAdmin_Click(object sender, RoutedEventArgs e)   => new WindowAdmin().ShowDialog();
+        private void btnRefresh_Click(object sender, RoutedEventArgs e) => LoadProducts();
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 11 — WindowProfile.xaml
+ПКМ на проект → Add → Window → WindowProfile.xaml
+-------------------------------------------------------------------------------------
+
+<Window x:Class="demolite.WindowProfile"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Профиль" Height="220" Width="300"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#F5F5F5">
+    <StackPanel Margin="30">
+        <TextBlock x:Name="lblLogin" Margin="0,0,0,4" FontSize="13"/>
+        <TextBlock x:Name="lblRole"  Margin="0,0,0,12" FontSize="13"/>
+        <TextBlock Text="Новый пароль (макс 3 символа):" FontSize="13"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,8" Height="28"/>
+        <Button Content="Изменить пароль" Click="btnSave_Click" Margin="0,0,0,6"
+                Height="30" Background="#27AE60" Foreground="White"/>
+        <Button Content="Выйти" Click="btnLogout_Click"
+                Height="30" Background="#E74C3C" Foreground="White"/>
+    </StackPanel>
+</Window>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 12 — WindowProfile.xaml.cs
+Вставить:
+-------------------------------------------------------------------------------------
+
+using System.Data.SQLite;
+using System.Windows;
+
+namespace demolite
+{
+    public partial class WindowProfile : Window
+    {
+        WindowCatalog parent;
+
+        public WindowProfile(WindowCatalog p)
+        {
+            InitializeComponent();
+            parent = p;
+            lblLogin.Text = "Логин: " + App.UserLogin;
+            lblRole.Text  = "Роль: "  + App.UserRole;
+        }
+
+        private void btnSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (txtPass.Password.Trim() == "")  { MessageBox.Show("Введите новый пароль!"); return; }
+            if (txtPass.Password.Length > 3)    { MessageBox.Show("Пароль макс 3 символа!"); return; }
+            var con = DB.Get(); con.Open();
+            var cmd = new SQLiteCommand("UPDATE Users SET Password=@p WHERE Id=@id", con);
+            cmd.Parameters.AddWithValue("@p",  txtPass.Password);
+            cmd.Parameters.AddWithValue("@id", App.UserId);
+            cmd.ExecuteNonQuery(); con.Close();
+            MessageBox.Show("Пароль изменён!");
+        }
+
+        private void btnLogout_Click(object sender, RoutedEventArgs e)
+        {
+            App.UserId = 0; App.UserLogin = ""; App.UserRole = "";
+            parent.UpdateButtons();
+            Close();
+        }
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 13 — WindowCart.xaml
+ПКМ на проект → Add → Window → WindowCart.xaml
+-------------------------------------------------------------------------------------
+
+<Window x:Class="demolite.WindowCart"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Корзина" Height="400" Width="480"
+        WindowStartupLocation="CenterScreen"
+        Background="#FAFAFA">
+    <DockPanel>
+        <Button DockPanel.Dock="Bottom" Content="Очистить корзину"
+                Height="35" Margin="5"
+                Background="#E74C3C" Foreground="White"
+                Click="btnClear_Click"/>
+        <DataGrid x:Name="dgv" AutoGenerateColumns="True"
+                  IsReadOnly="True" CanUserAddRows="False"/>
+    </DockPanel>
+</Window>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 14 — WindowCart.xaml.cs
+Вставить:
+-------------------------------------------------------------------------------------
+
+using System.Windows;
+
+namespace demolite
+{
+    public partial class WindowCart : Window
+    {
+        public WindowCart()
+        {
+            InitializeComponent();
+            dgv.ItemsSource = WindowCatalog.Cart.DefaultView;
+        }
+
+        private void btnClear_Click(object sender, RoutedEventArgs e)
+            => WindowCatalog.Cart.Rows.Clear();
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 15 — WindowAdmin.xaml
+ПКМ на проект → Add → Window → WindowAdmin.xaml
+-------------------------------------------------------------------------------------
+
+<Window x:Class="demolite.WindowAdmin"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Админ панель" Height="520" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#FAFAFA">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                    Background="#2C3E50" Height="45">
+            <ComboBox x:Name="cmbTable" Width="140" Margin="8,7,5,0" Height="28" SelectedIndex="0">
+                <ComboBoxItem Content="Товары"/>
+                <ComboBoxItem Content="Пользователи"/>
+            </ComboBox>
+            <Button Content="Загрузить" Height="28" Width="80" Margin="0,7,5,0"
+                    Background="#3498DB" Foreground="White" Click="btnLoad_Click"/>
+            <Button Content="Добавить"  Height="28" Width="80" Margin="0,7,5,0"
+                    Background="#27AE60" Foreground="White" Click="btnAdd_Click"/>
+            <Button Content="Сохранить" Height="28" Width="85" Margin="0,7,5,0"
+                    Background="#E67E22" Foreground="White" Click="btnSave_Click"/>
+            <Button Content="Удалить"   Height="28" Width="75" Margin="0,7,5,0"
+                    Background="#E74C3C" Foreground="White" Click="btnDelete_Click"/>
+        </StackPanel>
+        <DataGrid x:Name="dgv" AutoGenerateColumns="True" CanUserAddRows="False"/>
+    </DockPanel>
+</Window>
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 16 — WindowAdmin.xaml.cs
+Вставить:
+-------------------------------------------------------------------------------------
+
+using System;
+using System.Data;
+using System.Data.SQLite;
+using System.Windows;
+
+namespace demolite
+{
+    public partial class WindowAdmin : Window
+    {
+        DataTable dt = new DataTable();
+        SQLiteDataAdapter da;
+
+        public WindowAdmin() { InitializeComponent(); }
+
+        private void btnLoad_Click(object sender, RoutedEventArgs e)
+        {
+            var con = DB.Get(); con.Open();
+            string q = cmbTable.SelectedIndex == 0
+                ? @"SELECT p.Id, p.Name, p.Price, p.Stock, p.Discount,
+                           p.Description, p.Unit,
+                           c.Name as Category, m.Name as Manufacturer, s.Name as Supplier
+                    FROM Products p
+                    LEFT JOIN Categories c ON p.CategoryId=c.Id
+                    LEFT JOIN Manufacturers m ON p.ManufacturerId=m.Id
+                    LEFT JOIN Suppliers s ON p.SupplierId=s.Id"
+                : "SELECT * FROM Users";
+            da = new SQLiteDataAdapter(q, con);
+            new SQLiteCommandBuilder(da);
+            dt = new DataTable();
+            da.Fill(dt);
+            con.Close();
+            dgv.ItemsSource = dt.DefaultView;
+        }
+
+        private void btnSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            try { da.Update(dt); MessageBox.Show("Сохранено!"); }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+
+        private void btnAdd_Click(object sender, RoutedEventArgs e)
+        {
+            if (da == null) { MessageBox.Show("Сначала загрузите таблицу!"); return; }
+            dt.Rows.Add(dt.NewRow());
+        }
+
+        private void btnDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgv.SelectedItem == null || da == null) return;
+            ((DataRowView)dgv.SelectedItem).Row.Delete();
+            try { da.Update(dt); dt.AcceptChanges(); MessageBox.Show("Удалено!"); }
+            catch (Exception ex) { MessageBox.Show("Ошибка: " + ex.Message); }
+        }
+    }
+}
+
+
+
+
+-------------------------------------------------------------------------------------
+Шаг 17 — Фото товаров
+Создай папку images в bin\Debug\ → кинь туда PNG файлы
+Имена менять в методе GetImage в WindowCatalog.xaml.cs
+-------------------------------------------------------------------------------------
+
+Структура:
+bin\Debug\images\
+    nike.png
+    sapogi.png
+    tufli.png
+
+БД создастся автоматически при первом F5:
+bin\Debug\shoeshop.db
+
+
+
+
+-------------------------------------------------------------------------------------
+ВАЖНО — отличия SQLite от SSMS
+-------------------------------------------------------------------------------------
+
+SSMS (SQL Server)          SQLite
+--------------------------  --------------------------
+SqlConnection               SQLiteConnection
+SqlCommand                  SQLiteCommand
+SqlDataAdapter              SQLiteDataAdapter
+SqlCommandBuilder           SQLiteCommandBuilder
+using System.Data.SqlClient using System.Data.SQLite
+INT PRIMARY KEY IDENTITY    INTEGER PRIMARY KEY AUTOINCREMENT
+БД на сервере               БД = файл shoeshop.db рядом с exe
+(int)ExecuteScalar()        (long)ExecuteScalar()
+Нужен SSMS и сервер         Ничего не нужно, всё само
+
+
+
+
+====================================================================================
+СПРАВОЧНИК — изменение внешнего вида WPF
+====================================================================================
+
+
+-------------------------------------------------------------------------------------
+Цвета — готовые названия
+-------------------------------------------------------------------------------------
+
+White, Black, Gray, LightGray, DarkGray
+Red, DarkRed, OrangeRed
+Orange, DarkOrange
+Yellow, Gold
+Green, DarkGreen, LightGreen, SeaGreen
+Blue, DarkBlue, LightBlue, SteelBlue, CornflowerBlue
+Purple, Violet
+Pink, HotPink
+Beige, Ivory, Snow
+Transparent
+
+HEX примеры:
+#2C3E50  тёмно-синий
+#3498DB  синий
+#27AE60  зелёный
+#E74C3C  красный
+#E67E22  оранжевый
+#F5F5F5  светло-серый фон
+#FAFAFA  почти белый фон
+#2E8B57  тёмно-зелёный (скидка)
+
+
+-------------------------------------------------------------------------------------
+Цвет фона ОКНА
+-------------------------------------------------------------------------------------
+
+<Window Background="LightGray">
+<Window Background="#F0F0F0">
+<Window Background="#FAFAFA">
+
+
+-------------------------------------------------------------------------------------
+Цвет фона ПАНЕЛИ
+-------------------------------------------------------------------------------------
+
+<StackPanel Background="#2C3E50">
+<DockPanel Background="#EEEEEE">
+<Border Background="LightBlue">
+
+
+-------------------------------------------------------------------------------------
+КНОПКА — все свойства
+-------------------------------------------------------------------------------------
+
+<Button Content="Войти"
+        Background="#3498DB"
+        Foreground="White"
+        FontSize="14"
+        FontWeight="Bold"
+        Width="120"
+        Height="35"
+        Margin="5,0,5,0"
+        Padding="10,5"
+        BorderBrush="DarkBlue"
+        BorderThickness="2"
+        Cursor="Hand"
+        Click="btnName_Click"/>
+
+
+-------------------------------------------------------------------------------------
+ТЕКСТ
+-------------------------------------------------------------------------------------
+
+<TextBlock Text="Привет"
+           FontSize="16"
+           FontWeight="Bold"
+           Foreground="DarkBlue"
+           TextAlignment="Center"
+           Margin="0,5,0,5"/>
+
+<TextBox FontSize="14"
+         Background="LightYellow"
+         BorderBrush="Gray"
+         Height="28"
+         Padding="5"/>
+
+
+-------------------------------------------------------------------------------------
+ШРИФТ FontWeight
+-------------------------------------------------------------------------------------
+
+Thin / Light / Normal / Medium / SemiBold / Bold / ExtraBold / Black
+
+FontSize="12"   маленький
+FontSize="14"   обычный
+FontSize="16"   средний
+FontSize="20"   крупный
+
+
+-------------------------------------------------------------------------------------
+ОТСТУПЫ Margin и Padding
+-------------------------------------------------------------------------------------
+
+Margin="5"           5 со всех сторон
+Margin="10,5,10,5"   лево верх право низ
+Margin="0,0,5,0"     только справа 5
+Margin="0,10,0,0"    только сверху 10
+
+Padding="10"         внутренний отступ
+Padding="10,5"       лево-право=10, верх-низ=5
+
+
+-------------------------------------------------------------------------------------
+РАЗМЕРЫ
+-------------------------------------------------------------------------------------
+
+Width="100"
+Height="35"
+Width="Auto"
+MinWidth="80"
+MaxWidth="200"
+
+
+-------------------------------------------------------------------------------------
+ВЫРАВНИВАНИЕ
+-------------------------------------------------------------------------------------
+
+HorizontalAlignment="Left"
+HorizontalAlignment="Center"
+HorizontalAlignment="Right"
+HorizontalAlignment="Stretch"
+
+VerticalAlignment="Top"
+VerticalAlignment="Center"
+VerticalAlignment="Bottom"
+
+
+-------------------------------------------------------------------------------------
+ГРАНИЦА Border
+-------------------------------------------------------------------------------------
+
+<Border BorderBrush="Gray"
+        BorderThickness="1"
+        Background="White"
+        CornerRadius="5"
+        Padding="10"
+        Margin="5">
+    <!-- содержимое -->
+</Border>
+
+
+-------------------------------------------------------------------------------------
+ГОТОВЫЕ СТИЛИ КНОПОК
+-------------------------------------------------------------------------------------
+
+Синяя:
+<Button Content="Войти" Background="#3498DB" Foreground="White" Width="100" Height="30"/>
+
+Зелёная:
+<Button Content="Сохранить" Background="#27AE60" Foreground="White" Width="110" Height="30"/>
+
+Красная:
+<Button Content="Удалить" Background="#E74C3C" Foreground="White" Width="90" Height="30"/>
+
+Оранжевая:
+<Button Content="Корзина" Background="#E67E22" Foreground="White" Width="90" Height="30"/>
+
+Серая:
+<Button Content="Отмена" Background="LightGray" Foreground="Black" Width="90" Height="30"/>
+
+
+-------------------------------------------------------------------------------------
+КРАСИВАЯ ВЕРХНЯЯ ПАНЕЛЬ
+-------------------------------------------------------------------------------------
+
+<StackPanel DockPanel.Dock="Top"
+            Orientation="Horizontal"
+            Background="#2C3E50"
+            Height="45">
+    <TextBox Width="160" Margin="8,7,5,0" Height="28"/>
+    <Button Content="Поиск"  Background="#3498DB" Foreground="White" Width="80"  Height="28" Margin="0,7,5,0"/>
+    <Button Content="Корзина" Background="#E67E22" Foreground="White" Width="80" Height="28" Margin="0,7,5,0"/>
+    <Button Content="Админ"  Background="#E74C3C" Foreground="White" Width="70"  Height="28" Margin="0,7,5,0"/>
+    <Button Content="Войти"  Background="#3498DB" Foreground="White" Width="75"  Height="28" Margin="0,7,5,0"/>
+    <TextBlock Foreground="White" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="13"/>
+</StackPanel>
+
+
+====================================================================================
+СТРУКТУРА ПРОЕКТА
+====================================================================================
+
+demolite/
+    App.xaml
+    App.xaml.cs
+    DB.cs
+    WindowAuth.xaml + WindowAuth.xaml.cs
+    WindowCatalog.xaml + WindowCatalog.xaml.cs
+    WindowProfile.xaml + WindowProfile.xaml.cs
+    WindowCart.xaml + WindowCart.xaml.cs
+    WindowAdmin.xaml + WindowAdmin.xaml.cs
+
+bin\Debug\
+    shoeshop.db        создастся сам при первом F5
+    images\
+        nike.png
+        sapogi.png
+        tufli.png
+
+Логины для входа:
+    admin / 123  (роль admin — видит кнопку Админ)
+    user1 / abc  (роль user)
+    или войти как гость
+
+====================================================================================
