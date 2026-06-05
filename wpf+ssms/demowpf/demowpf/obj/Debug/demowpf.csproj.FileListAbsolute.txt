@@ -1,0 +1,44 @@
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.exe.config
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.exe
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.pdb
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.AssemblyReference.cache
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAdmin.baml
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAuth.baml
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCart.baml
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCatalog.baml
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowProfile.baml
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAdmin.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAuth.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCart.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCatalog.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\WindowProfile.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\App.g.cs
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf_MarkupCompile.cache
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.g.resources
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.Properties.Resources.resources
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.GenerateResource.cache
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.CoreCompileInputs.cache
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.exe
+C:\Users\alexa\Desktop\Новая папка\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.pdb
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.exe.config
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.exe
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\bin\Debug\demowpf.pdb
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.AssemblyReference.cache
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAdmin.baml
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAuth.baml
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCart.baml
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCatalog.baml
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowProfile.baml
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAdmin.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowAuth.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCart.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowCatalog.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\WindowProfile.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\App.g.cs
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf_MarkupCompile.cache
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.g.resources
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.Properties.Resources.resources
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.GenerateResource.cache
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.csproj.CoreCompileInputs.cache
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.exe
+C:\Users\alexa\Desktop\win32\wpf+ssms\demowpf\demowpf\obj\Debug\demowpf.pdb
