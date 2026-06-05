@@ -1,0 +1,42 @@
+USE [ShoeShop]
+GO
+
+-- Добавляем колонку Phone если её нет
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Users' AND COLUMN_NAME = 'Phone')
+BEGIN
+    ALTER TABLE Users ADD Phone NVARCHAR(20) NULL
+END
+GO
+
+-- Обновляем существующих пользователей (если нужно)
+UPDATE Users SET Phone = '+70000000000' WHERE Phone IS NULL
+GO
+
+-- Делаем Phone обязательным для новых записей
+ALTER TABLE Users ALTER COLUMN Phone NVARCHAR(20) NOT NULL
+GO
+
+-- Добавляем уникальность для телефона
+ALTER TABLE Users ADD CONSTRAINT UQ_Users_Phone UNIQUE (Phone)
+GO
+
+-- Создаём таблицу Users заново (если нужно пересоздать)
+/*
+DROP TABLE IF EXISTS Users
+GO
+
+CREATE TABLE Users (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Login NVARCHAR(50) NOT NULL UNIQUE,
+    Password NVARCHAR(50) NOT NULL,
+    Phone NVARCHAR(20) NOT NULL UNIQUE,
+    Role NVARCHAR(20) NOT NULL DEFAULT 'user'
+)
+GO
+
+-- Пример вставки тестового пользователя
+INSERT INTO Users (Login, Password, Phone, Role) VALUES 
+('admin', 'admin123', '+79991234567', 'admin'),
+('user1', 'password123', '+79876543210', 'user')
+GO
+*/
