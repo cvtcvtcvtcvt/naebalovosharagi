@@ -1,0 +1,15 @@
+﻿<Window x:Class="demowpf.WindowProfile"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Профиль" Height="330" Width="420"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="30">
+        <TextBlock x:Name="lblLogin" Margin="0,0,0,4"/>
+        <TextBlock x:Name="lblRole" Margin="0,0,0,12"/>
+        <TextBlock Text="Новый пароль (макс 3 символа):"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,8"/>
+        <Button Content="Изменить пароль" Click="btnSave_Click" Margin="0,0,0,6"/>
+        <Button Content="Выйти" Click="btnLogout_Click"/>
+    </StackPanel>
+</Window>
+

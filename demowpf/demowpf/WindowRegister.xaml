@@ -1,0 +1,23 @@
+﻿<Window x:Class="demowpf.WindowRegister"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Регистрация" Height="400" Width="450"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="30">
+        <TextBlock Text="Логин:" FontWeight="Bold"/>
+        <TextBox x:Name="txtLogin" Margin="0,2,0,12"/>
+
+        <TextBlock Text="Телефон:" FontWeight="Bold"/>
+        <TextBox x:Name="txtPhone" Margin="0,2,0,12" Text="+7"/>
+
+        <TextBlock Text="Пароль (мин. 8 символов):" FontWeight="Bold"/>
+        <PasswordBox x:Name="txtPass" Margin="0,2,0,12"/>
+
+        <TextBlock Text="Повторите пароль:" FontWeight="Bold"/>
+        <PasswordBox x:Name="txtPassConfirm" Margin="0,2,0,20"/>
+
+        <Button Content="Зарегистрироваться" Width="180" Height="30" Click="btnRegister_Click" Background="LightGreen"/>
+
+        <TextBlock x:Name="lblError" Foreground="Red" Margin="0,10,0,0" TextWrapping="Wrap"/>
+    </StackPanel>
+</Window>
